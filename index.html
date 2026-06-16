@@ -147,13 +147,17 @@ button{cursor:pointer}
     <div class="boxBody">
       <div class="center">บ้าน <span id="modalHouse">-</span><br>เลข <span class="numTag" id="modalNumber">--</span></div>
       <div class="row">
-        <input id="topAmount" type="number" placeholder="ยอดบน">
-        <input id="bottomAmount" type="number" placeholder="ยอดล่าง">
+        <input id="straightAmount" type="number" placeholder="ตรง / 3 ตัวบน">
+        <input id="todAmount" type="number" placeholder="โต๊ด">
+      </div>
+      <div class="row">
+        <input id="topAmount" type="number" placeholder="ยอดบน / 2 ตัวบน">
+        <input id="bottomAmount" type="number" placeholder="ยอดล่าง / 2 ตัวล่าง">
       </div>
       <div class="amountBtns">
         <button type="button" data-amt="5">5</button><button type="button" data-amt="10">10</button><button type="button" data-amt="20">20</button><button type="button" data-amt="50">50</button><button type="button" data-amt="100">100</button>
       </div>
-      <div class="small">แตะช่องยอดบน/ล่างก่อน แล้วกดจำนวนเงิน</div>
+      <div class="small">ตรง/โต๊ด/บน/ล่าง แยกยอดกัน เช่น ตรง 30 โต๊ด 20</div>
       <div class="modalActions">
         <button type="button" class="cancel" id="cancelPrice">ยกเลิก</button>
         <button type="button" class="confirm" id="confirmPrice">ใส่ยอดแทง</button>
@@ -247,6 +251,8 @@ button{cursor:pointer}
   const slipsModal = $("slipsModal");
   const houseSelect = $("houseSelect");
   const name = $("slipName");
+  const straightAmount = $("straightAmount");
+  const todAmount = $("todAmount");
   const topAmount = $("topAmount");
   const bottomAmount = $("bottomAmount");
 
@@ -328,12 +334,16 @@ button{cursor:pointer}
     }
   };
 
+  straightAmount.onfocus = () => amountFocus = "straight";
+  todAmount.onfocus = () => amountFocus = "tod";
   topAmount.onfocus = () => amountFocus = "top";
   bottomAmount.onfocus = () => amountFocus = "bottom";
   document.querySelectorAll("[data-amt]").forEach(btn => {
     btn.onclick = () => {
       if(amountFocus === "bottom") bottomAmount.value = btn.dataset.amt;
-      else topAmount.value = btn.dataset.amt;
+      else if(amountFocus === "top") topAmount.value = btn.dataset.amt;
+      else if(amountFocus === "tod") todAmount.value = btn.dataset.amt;
+      else straightAmount.value = btn.dataset.amt;
     };
   });
 
@@ -386,9 +396,11 @@ button{cursor:pointer}
     if(number.length < minDigits()) return alert("กดเลขให้ครบก่อน");
     $("modalNumber").textContent = number;
     $("modalHouse").textContent = currentHouse;
+    straightAmount.value = "";
+    todAmount.value = "";
     topAmount.value = "";
     bottomAmount.value = "";
-    amountFocus = "top";
+    amountFocus = "straight";
     priceModal.classList.add("show");
     setTimeout(() => topAmount.focus(), 80);
   }
@@ -456,9 +468,14 @@ button{cursor:pointer}
   }
 
   function addPrice(){
+    const straight = Number(straightAmount.value || 0);
+    const tod = Number(todAmount.value || 0);
     const top = Number(topAmount.value || 0);
     const bottom = Number(bottomAmount.value || 0);
-    if(top <= 0 && bottom <= 0) return alert("ใส่ยอดบนหรือล่างก่อน");
+
+    if(straight <= 0 && tod <= 0 && top <= 0 && bottom <= 0){
+      return alert("ใส่ยอดแทงก่อน");
+    }
 
     const pending = {};
     function addPending(type, pay, num, amount){
@@ -470,8 +487,21 @@ button{cursor:pointer}
       const n = sel.digits === 2 ? number.slice(-2) : number.slice(0,3);
       if(n.length < sel.digits) return;
 
-      if(sel.type === "2ตัวบน" && top > 0) addPending("สองตัวบน",getPay("2ตัวบน"),n,top);
-      if(sel.type === "2ตัวล่าง" && bottom > 0) addPending("สองตัวล่าง",getPay("2ตัวล่าง"),n,bottom);
+      if(sel.type === "3ตัวบน" && straight > 0){
+        addPending("สามตัวบน",getPay("3ตัวบน"),n,straight);
+      }
+
+      if(sel.type === "3ตัวโต๊ด" && tod > 0){
+        addPending("สามตัวโต๊ด",getPay("3ตัวโต๊ด"),n,tod);
+      }
+
+      if(sel.type === "2ตัวบน" && top > 0){
+        addPending("สองตัวบน",getPay("2ตัวบน"),n,top);
+      }
+
+      if(sel.type === "2ตัวล่าง" && bottom > 0){
+        addPending("สองตัวล่าง",getPay("2ตัวล่าง"),n,bottom);
+      }
 
       if(sel.type === "2ตัวกลับ"){
         perms(n).forEach(x => {
@@ -479,9 +509,6 @@ button{cursor:pointer}
           if(bottom > 0) addPending("สองตัวล่าง",getPay("2ตัวกลับ"),x,bottom);
         });
       }
-
-      if(sel.type === "3ตัวบน" && top > 0) addPending("สามตัวบน",getPay("3ตัวบน"),n,top);
-      if(sel.type === "3ตัวโต๊ด" && top > 0) addPending("สามตัวโต๊ด",getPay("3ตัวโต๊ด"),n,top);
 
       if(sel.type === "6กลับ"){
         perms(n).forEach(x => {
@@ -502,7 +529,7 @@ button{cursor:pointer}
     }
   }
 
-  function openLimit(){
+    function openLimit(){
     $("limitHouse").value = currentHouse;
     limitModal.classList.add("show");
     renderLimits();
