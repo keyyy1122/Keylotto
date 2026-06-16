@@ -57,7 +57,7 @@ button{cursor:pointer}
 .slipItem,.limitItem,.houseResult{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px}
 .slipItem button,.limitItem button{border:0;background:#df3145;color:#fff;border-radius:6px;padding:7px 10px;margin-left:4px}
 .resultList,.slipDetail,.limitList{max-height:320px;overflow:auto;border-top:1px solid #ddd;margin-top:10px;font-size:13px}
-.win{color:#168b50;font-weight:900}.lose{color:#777}.small{font-size:12px;color:#777;margin-top:8px;text-align:center}.priceRows{max-height:330px;overflow:auto;border-top:1px solid #eee;margin-top:8px}.priceRow{display:grid;grid-template-columns:34px 54px 1fr 54px;gap:6px;align-items:center;border-bottom:1px solid #eee;padding:7px 0}.priceRow .tag{background:#159052;color:white;border-radius:5px;padding:8px 0;text-align:center;font-weight:900}.priceRow input{padding:10px!important;font-size:17px!important}.eqBox{margin-top:12px;text-align:center;border-top:1px solid #ddd;padding-top:10px}.eqBox .eqLine{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
+.win{color:#168b50;font-weight:900}.lose{color:#777}.small{font-size:12px;color:#777;margin-top:8px;text-align:center}.draftPreview{margin-top:14px;background:#20252d;color:white;border-radius:10px;padding:10px;text-align:left}.draftPreview h4{margin:0 0 8px;color:#ff8d24;font-size:18px}.draftGroup{margin:10px 0}.draftGroupTitle{display:inline-block;background:#1679f2;color:white;border-radius:7px;padding:5px 9px;font-weight:900}.draftItem{display:grid;grid-template-columns:28px 1fr;gap:6px;font-size:24px;margin:7px 0}.priceRows{max-height:330px;overflow:auto;border-top:1px solid #eee;margin-top:8px}.priceRow{display:grid;grid-template-columns:34px 54px 1fr 54px;gap:6px;align-items:center;border-bottom:1px solid #eee;padding:7px 0}.priceRow .tag{background:#159052;color:white;border-radius:5px;padding:8px 0;text-align:center;font-weight:900}.priceRow input{padding:10px!important;font-size:17px!important}.eqBox{margin-top:12px;text-align:center;border-top:1px solid #ddd;padding-top:10px}.eqBox .eqLine{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
 .report{display:none}
 @media print{
   body{background:#fff}
@@ -118,6 +118,7 @@ button{cursor:pointer}
         <button type="button" data-num="7">7</button><button type="button" data-num="8">8</button><button type="button" data-num="9">9</button>
         <button type="button" id="randomBtn">สุ่มเลข</button><button type="button" data-num="0">0</button><button type="button" id="backBtn" class="black">⌫</button>
       </div>
+      <div class="draftPreview" id="draftPreview"><h4>รายการแทงที่เตรียมใส่ราคา</h4><div id="draftList">ยังไม่มีรายการ</div></div>
       <button type="button" class="action" id="openPriceMain">ใส่ราคา</button>
       <button type="button" class="action green" id="openCheckMain">ตรวจผล / กำไรขาดทุน</button>
     </section>
@@ -385,6 +386,7 @@ button{cursor:pointer}
   function renderDigits(){
     const len = selected.length ? maxDigits() : 2;
     $("digitBoxes").innerHTML = Array.from({length:len}, (_,i) => `<div class="digit">${number[i] || ""}</div>`).join("");
+    renderDraftPreview();
   }
 
   function makeDraftRows(){
@@ -752,7 +754,36 @@ button{cursor:pointer}
     `).join("") : `ยังไม่มีโพยที่ส่งของ ${currentHouse}`;
   }
 
-  function render(){
+function renderDraftPreview(){
+    const box = $("draftList");
+    if(!box) return;
+
+    if(!selected.length || number.length < minDigits()){
+      box.innerHTML = "ยังไม่มีรายการ";
+      return;
+    }
+
+    const rows = makeDraftRows();
+    if(!rows.length){
+      box.innerHTML = "ยังไม่มีรายการ";
+      return;
+    }
+
+    const groups = {};
+    rows.forEach(r => {
+      if(!groups[r.type]) groups[r.type] = [];
+      groups[r.type].push(r);
+    });
+
+    box.innerHTML = Object.keys(groups).map(type => `
+      <div class="draftGroup">
+        <div class="draftGroupTitle">${type}</div>
+        ${groups[type].map((r,i) => `<div class="draftItem"><span>${i+1}.</span><b>${r.number}</b></div>`).join("")}
+      </div>
+    `).join("");
+  }
+
+    function render(){
     const sale = totalSale(bets());
     const com = commission(sale);
     const lr = state().lastResult || {};
