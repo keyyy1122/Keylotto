@@ -57,7 +57,7 @@ button{cursor:pointer}
 .slipItem,.limitItem,.houseResult{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px}
 .slipItem button,.limitItem button{border:0;background:#df3145;color:#fff;border-radius:6px;padding:7px 10px;margin-left:4px}
 .resultList,.slipDetail,.limitList{max-height:320px;overflow:auto;border-top:1px solid #ddd;margin-top:10px;font-size:13px}
-.win{color:#168b50;font-weight:900}.lose{color:#777}.small{font-size:12px;color:#777;margin-top:8px;text-align:center}
+.win{color:#168b50;font-weight:900}.lose{color:#777}.small{font-size:12px;color:#777;margin-top:8px;text-align:center}.priceRows{max-height:330px;overflow:auto;border-top:1px solid #eee;margin-top:8px}.priceRow{display:grid;grid-template-columns:34px 54px 1fr 54px;gap:6px;align-items:center;border-bottom:1px solid #eee;padding:7px 0}.priceRow .tag{background:#159052;color:white;border-radius:5px;padding:8px 0;text-align:center;font-weight:900}.priceRow input{padding:10px!important;font-size:17px!important}.eqBox{margin-top:12px;text-align:center;border-top:1px solid #ddd;padding-top:10px}.eqBox .eqLine{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
 .report{display:none}
 @media print{
   body{background:#fff}
@@ -143,21 +143,23 @@ button{cursor:pointer}
 
 <div class="modal" id="priceModal">
   <div class="box">
-    <div class="boxHead"><div>½ ใส่ราคา</div><button type="button" class="close" id="closePrice">×</button></div>
+    <div class="boxHead"><div>½ ใส่ราคา <span id="draftCount" style="font-size:14px;background:#fff8d9;color:#df242f;border-radius:12px;padding:4px 8px">0 รายการ</span></div><button type="button" class="close" id="closePrice">×</button></div>
     <div class="boxBody">
       <div class="center">บ้าน <span id="modalHouse">-</span><br>เลข <span class="numTag" id="modalNumber">--</span></div>
-      <div class="row">
-        <input id="straightAmount" type="number" placeholder="ตรง / 3 ตัวบน">
-        <input id="todAmount" type="number" placeholder="โต๊ด">
+      <div class="priceRows" id="priceRows"></div>
+
+      <div class="eqBox">
+        <b>ราคา "เท่ากัน" ทั้งหมด</b>
+        <div class="eqLine">
+          <input id="equalAmount" type="number" placeholder="ใส่ราคา">
+          <button type="button" id="copyEqual" style="border:2px solid #168b50;background:white;color:#168b50;border-radius:8px;font-weight:900;padding:0 14px">คัดลอก</button>
+        </div>
+        <div class="amountBtns">
+          <button type="button" data-amt="5">5</button><button type="button" data-amt="10">10</button><button type="button" data-amt="20">20</button><button type="button" data-amt="50">50</button><button type="button" data-amt="100">100</button>
+        </div>
+        <div class="small">คีย์เลขให้ครบก่อน แล้วค่อยใส่ราคาในหน้านี้</div>
       </div>
-      <div class="row">
-        <input id="topAmount" type="number" placeholder="ยอดบน / 2 ตัวบน">
-        <input id="bottomAmount" type="number" placeholder="ยอดล่าง / 2 ตัวล่าง">
-      </div>
-      <div class="amountBtns">
-        <button type="button" data-amt="5">5</button><button type="button" data-amt="10">10</button><button type="button" data-amt="20">20</button><button type="button" data-amt="50">50</button><button type="button" data-amt="100">100</button>
-      </div>
-      <div class="small">ตรง/โต๊ด/บน/ล่าง แยกยอดกัน เช่น ตรง 30 โต๊ด 20</div>
+
       <div class="modalActions">
         <button type="button" class="cancel" id="cancelPrice">ยกเลิก</button>
         <button type="button" class="confirm" id="confirmPrice">ใส่ยอดแทง</button>
@@ -251,10 +253,8 @@ button{cursor:pointer}
   const slipsModal = $("slipsModal");
   const houseSelect = $("houseSelect");
   const name = $("slipName");
-  const straightAmount = $("straightAmount");
-  const todAmount = $("todAmount");
-  const topAmount = $("topAmount");
-  const bottomAmount = $("bottomAmount");
+  const equalAmount = $("equalAmount");
+  let draftRows = [];
 
   houseSelect.value = currentHouse;
   houseSelect.onchange = () => {
@@ -334,16 +334,12 @@ button{cursor:pointer}
     }
   };
 
-  straightAmount.onfocus = () => amountFocus = "straight";
-  todAmount.onfocus = () => amountFocus = "tod";
-  topAmount.onfocus = () => amountFocus = "top";
-  bottomAmount.onfocus = () => amountFocus = "bottom";
+  $("copyEqual").onclick = applyEqualAmount;
+
   document.querySelectorAll("[data-amt]").forEach(btn => {
     btn.onclick = () => {
-      if(amountFocus === "bottom") bottomAmount.value = btn.dataset.amt;
-      else if(amountFocus === "top") topAmount.value = btn.dataset.amt;
-      else if(amountFocus === "tod") todAmount.value = btn.dataset.amt;
-      else straightAmount.value = btn.dataset.amt;
+      equalAmount.value = btn.dataset.amt;
+      applyEqualAmount();
     };
   });
 
@@ -391,142 +387,104 @@ button{cursor:pointer}
     $("digitBoxes").innerHTML = Array.from({length:len}, (_,i) => `<div class="digit">${number[i] || ""}</div>`).join("");
   }
 
-  function openPrice(){
-    if(!selected.length) return alert("เลือกเมนูก่อน");
-    if(number.length < minDigits()) return alert("กดเลขให้ครบก่อน");
-    $("modalNumber").textContent = number;
-    $("modalHouse").textContent = currentHouse;
-    straightAmount.value = "";
-    todAmount.value = "";
-    topAmount.value = "";
-    bottomAmount.value = "";
-    amountFocus = "straight";
-    priceModal.classList.add("show");
-    setTimeout(() => topAmount.focus(), 80);
-  }
-
-  function closePrice(){ priceModal.classList.remove("show"); }
-
-  function perms(str){
-    if(!str) return [];
-    if(str.length <= 1) return [str];
-    const out = [];
-    for(let i=0; i<str.length; i++){
-      const rest = str.slice(0,i) + str.slice(i+1);
-      perms(rest).forEach(p => out.push(str[i] + p));
-    }
-    return [...new Set(out)];
-  }
-
-  function limitKey(type, num){
-    if(type === "หกกลับบน" || type === "หกกลับล่าง"){
-      return type + ":" + perms(num).sort().join("");
-    }
-    return type + ":" + num;
-  }
-
-  function soldAmount(type, num, h=currentHouse){
-    const key = limitKey(type, num);
-
-    const currentSold = bets(h)
-      .filter(b => limitKey(b.type, b.number) === key)
-      .reduce((sum,b) => sum + Number(b.amount), 0);
-
-    const sentSold = slips(h)
-      .flatMap(s => s.items || [])
-      .filter(b => limitKey(b.type, b.number) === key)
-      .reduce((sum,b) => sum + Number(b.amount), 0);
-
-    return currentSold + sentSold;
-  }
-
-  function findLimit(type, num, h=currentHouse){
-    const key = limitKey(type, num);
-    return limits(h).find(l => l.key === key);
-  }
-
-  function canAccept(type, num, amount){
-    const limit = findLimit(type, num);
-    if(!limit) return {ok:true};
-    const sold = soldAmount(type, num);
-    const remain = Number(limit.max) - sold;
-    return {ok: amount <= remain, sold, remain, max:Number(limit.max)};
-  }
-
-  function addOrMerge(type, pay, num, amount){
-    const check = canAccept(type, num, amount);
-    if(!check.ok){
-      alert(`${currentHouse}\nเลข ${num} ${type} เกินอั้นแล้ว\nอั้น ${check.max.toLocaleString()} บาท\nซื้อมาแล้ว ${check.sold.toLocaleString()} บาท\nเหลือรับได้ ${Math.max(check.remain,0).toLocaleString()} บาท\nรายการนี้แทง ${amount.toLocaleString()} บาท`);
-      return false;
-    }
-
-    const arr = bets();
-    const found = arr.find(b => b.type === type && b.number === num && b.pay === pay);
-    if(found) found.amount += amount;
-    else arr.push({id:String(Date.now()+Math.random()), type, pay, number:num, amount, payout:0, win:false});
-    return true;
-  }
-
-  function addPrice(){
-    const straight = Number(straightAmount.value || 0);
-    const tod = Number(todAmount.value || 0);
-    const top = Number(topAmount.value || 0);
-    const bottom = Number(bottomAmount.value || 0);
-
-    if(straight <= 0 && tod <= 0 && top <= 0 && bottom <= 0){
-      return alert("ใส่ยอดแทงก่อน");
-    }
-
+  function makeDraftRows(){
     const pending = {};
-    function addPending(type, pay, num, amount){
+    function addPending(type, pay, num){
       const key = type + "_" + num + "_" + pay;
-      if(!pending[key]) pending[key] = {type,pay,number:num,amount};
+      if(!pending[key]) pending[key] = {type,pay,number:num,amount:""};
     }
 
     selected.forEach(sel => {
       const n = sel.digits === 2 ? number.slice(-2) : number.slice(0,3);
       if(n.length < sel.digits) return;
 
-      if(sel.type === "3ตัวบน" && straight > 0){
-        addPending("สามตัวบน",getPay("3ตัวบน"),n,straight);
-      }
-
-      if(sel.type === "3ตัวโต๊ด" && tod > 0){
-        addPending("สามตัวโต๊ด",getPay("3ตัวโต๊ด"),n,tod);
-      }
-
-      if(sel.type === "2ตัวบน" && top > 0){
-        addPending("สองตัวบน",getPay("2ตัวบน"),n,top);
-      }
-
-      if(sel.type === "2ตัวล่าง" && bottom > 0){
-        addPending("สองตัวล่าง",getPay("2ตัวล่าง"),n,bottom);
-      }
+      if(sel.type === "3ตัวบน") addPending("สามตัวบน",getPay("3ตัวบน"),n);
+      if(sel.type === "3ตัวโต๊ด") addPending("สามตัวโต๊ด",getPay("3ตัวโต๊ด"),n);
+      if(sel.type === "2ตัวบน") addPending("สองตัวบน",getPay("2ตัวบน"),n);
+      if(sel.type === "2ตัวล่าง") addPending("สองตัวล่าง",getPay("2ตัวล่าง"),n);
 
       if(sel.type === "2ตัวกลับ"){
         perms(n).forEach(x => {
-          if(top > 0) addPending("สองตัวบน",getPay("2ตัวกลับ"),x,top);
-          if(bottom > 0) addPending("สองตัวล่าง",getPay("2ตัวกลับ"),x,bottom);
+          addPending("สองตัวบน",getPay("2ตัวกลับ"),x);
+          addPending("สองตัวล่าง",getPay("2ตัวกลับ"),x);
         });
       }
 
       if(sel.type === "6กลับ"){
         perms(n).forEach(x => {
-          if(top > 0) addPending("หกกลับบน",getPay("6กลับ"),x,top);
-          if(bottom > 0) addPending("หกกลับล่าง",getPay("6กลับ"),x,bottom);
+          addPending("หกกลับบน",getPay("6กลับ"),x);
+          addPending("หกกลับล่าง",getPay("6กลับ"),x);
         });
       }
     });
 
-    let added = 0;
-    Object.values(pending).forEach(item => { if(addOrMerge(item.type,item.pay,item.number,item.amount)) added++; });
+    return Object.values(pending);
+  }
 
-    if(added > 0){
-      number = "";
-      closePrice();
-      saveAll();
-      renderDigits();
+  function renderPriceRows(){
+    $("draftCount").textContent = draftRows.length + " รายการ";
+    $("priceRows").innerHTML = draftRows.map((r,i) => `
+      <div class="priceRow">
+        <div>${i+1}</div>
+        <div class="tag">${r.number}</div>
+        <div>
+          <b>${r.type}</b><br>
+          <span style="font-size:12px;color:#1679f2">อัตราจ่าย ${r.pay}</span>
+        </div>
+        <input type="number" class="rowAmount" data-i="${i}" value="${r.amount || ""}" placeholder="ราคา">
+      </div>
+    `).join("");
+
+    document.querySelectorAll(".rowAmount").forEach(inp => {
+      inp.oninput = () => {
+        const i = Number(inp.dataset.i);
+        draftRows[i].amount = Number(inp.value || 0);
+      };
+    });
+  }
+
+  function applyEqualAmount(){
+    const v = Number(equalAmount.value || 0);
+    if(v <= 0) return alert("ใส่ราคาก่อน");
+    draftRows.forEach(r => r.amount = v);
+    renderPriceRows();
+  }
+
+  function openPrice(){
+    if(!selected.length) return alert("เลือกเมนูก่อน");
+    if(number.length < minDigits()) return alert("กดเลขให้ครบก่อน");
+
+    draftRows = makeDraftRows();
+    if(!draftRows.length) return alert("ไม่มีรายการที่จะใส่ราคา");
+
+    $("modalNumber").textContent = number;
+    $("modalHouse").textContent = currentHouse;
+    equalAmount.value = "";
+    renderPriceRows();
+    priceModal.classList.add("show");
+    setTimeout(() => equalAmount.focus(), 80);
+  }
+
+  function closePrice(){ priceModal.classList.remove("show"); }
+
+  function addPrice(){
+    if(!draftRows.length) return alert("ไม่มีรายการแทง");
+
+    let added = 0;
+    for(const item of draftRows){
+      const amount = Number(item.amount || 0);
+      if(amount > 0){
+        if(addOrMerge(item.type,item.pay,item.number,amount)) added++;
+      }
     }
+
+    if(added <= 0) return alert("ใส่ราคาอย่างน้อย 1 รายการ");
+
+    draftRows = [];
+    number = "";
+    closePrice();
+    saveAll();
+    renderDigits();
   }
 
     function openLimit(){
